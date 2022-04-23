@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+  <!--
+Backup Fitbit data for personal use
+Copyright (C) 2022 Andrew Sayers
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2
+of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+    -->
+  <head>
+    <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+      @media only screen and (min-height: 500px) {
+          #main-section {
+              position: absolute;
+              top: 40vh;
+              left: 50vw;
+              transform: translate(-50%,-50%);
+          }
+      }
+      @media only screen and (max-height: 499px) {
+          #icon-bar {
+              width: 350px;
+              margin: auto;
+          }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <v-app>
+        <v-main>
+
+          <div
+            id="main-section">
+            <v-card class="mx-auto" width="280">
+              <v-card-title v-if="conf">Fitbit backup configuration</v-card-title>
+              <v-card-title v-else>Fitbit data backup</v-card-title>
+
+              <v-card-text>
+                <v-text-field
+                  v-model="client_id"
+                  :append-icon="show_client_id ? 'mdi-eye' : 'mdi-eye-off'"
+                  :type="show_client_id ? 'text' : 'password'"
+                  dense hide-details
+                  label="Client ID"
+                  hint="See below for instructions"
+                  @click:append="show_client_id = !show_client_id"
+                  ></v-text-field>
+
+                  <a
+                    @click.stop="show_howto = true"
+                    >How do I make a client ID?
+                  </a>
+
+                  <v-radio-group
+                    class="mb-4"
+                    v-model="subformat"
+                    hide-details
+                    v-if="!conf"
+                    >
+                    <v-radio
+                      label="Download untimed data"
+                      value="untimed"
+                      hint="e.g. recent activities"
+                      ></v-radio>
+                    <v-radio
+                      label="Download intraday data"
+                      value="intraday"
+                      hint="e.g. your heart rate"
+                      ></v-radio>
+                    <v-radio
+                      label="Download date-range data"
+                      value="date_range"
+                      hint="e.g. your activity list"
+                      ></v-radio>
+                  </v-radio-group>
+
+                <v-expand-transition v-if="!conf">
+                  <p v-show="subformat=='intraday'">
+                    <v-menu
+                      ref="intraday"
+                      v-model="show_intraday_picker"
+                      :close-on-content-click="false"
+                      :return-value.sync="intraday"
+                      transition="scale-transition"
+                      offset-y
+                      min-width="auto"
+                      >
+                      <template v-slot:activator="{ on, attrs }">
+                        <v-text-field
+                          v-model="intraday_text"
+                          label="Day"
+                          prepend-icon="mdi-calendar"
+                          readonly
+                          v-bind="attrs"
+                          v-on="on"
+                          dense hide-details
+                          ></v-text-field>
+                      </template>
+                      <v-date-picker
+                        v-model="intraday"
+                        no-title
+                        scrollable
+                        >
+                        <v-spacer></v-spacer>
+                        <v-btn
+                          text
+                          color="primary"
+                          @click="show_intraday_picker = false"
+                          >
+                          Cancel
+                        </v-btn>
+                        <v-btn
+                          text
+                          color="primary"
+                          @click="$refs.intraday.save(intraday); intraday_text = intraday"
+                          >
+                          OK
+                        </v-btn>
+                      </v-date-picker>
+                  </p>
+                </v-expand-transition>
+                <v-expand-transition v-if="!conf">
+                  <p v-show="subformat=='date_range'">
+                    <v-menu
+                      ref="date_range"
+                      v-model="show_date_range_picker"
+                      :close-on-content-click="false"
+                      :return-value.sync="date_range"
+                      transition="scale-transition"
+                      offset-y
+                      min-width="auto"
+                      >
+                      <template v-slot:activator="{ on, attrs }">
+                        <v-text-field
+                          v-model="date_range_text"
+                          label="Range"
+                          prepend-icon="mdi-calendar"
+                          readonly
+                          v-bind="attrs"
+                          v-on="on"
+                          dense hide-details
+                          ></v-text-field>
+                      </template>
+                      <v-date-picker
+                        v-model="date_range"
+                        no-title
+                        scrollable
+                        range
+                        >
+                        <v-spacer></v-spacer>
+                        <v-btn
+                          text
+                          color="primary"
+                          @click="show_date_range_picker = false"
+                          >
+                          Cancel
+                        </v-btn>
+                        <v-btn
+                          text
+                          color="primary"
+                          @click="$refs.date_range.save(date_range); date_range_text = date_range.sort().join(' to ')"
+                          >
+                          OK
+                        </v-btn>
+                      </v-date-picker>
+                    </v-menu>
+                  </p>
+                </v-expand-transition>
+
+                <v-card-actions>
+                  <v-btn
+                    style="width:100%"
+                    :loading="downloading"
+                    :disabled="download_disabled"
+                    color="primary"
+                    @click="save_values"
+                    :href="download_uri"
+                    >
+                    <v-icon>
+                      mdi-download
+                    </v-icon>
+                    Download
+                  </v-btn>
+                  <a ref="downloader" style="display:none"></a>
+
+                </v-card-actions>
+
+              </v-card-text>
+
+              <v-dialog
+                v-model="show_howto"
+                max-width="400"
+                >
+                <v-card>
+                  <v-card-title>Make a client ID</v-card-title>
+                  <v-card-text>
+                    <p>A client ID is a unique identifier that gives us limited access to your account.  Here's how to make one:</p>
+
+                    <ol>
+                      <li>Open <a target="_blank" :href="'https://dev.fitbit.com/apps/new?name='+encodeURIComponent(location)">the <em>new application</em> page</a><br/></li>
+                      <li>Put this in each text field:<br/><kbd>{{location}}</kbd></li>
+                      <li>Set <em>OAuth 2.0 Application Type</em> to <em>Personal</em></li>
+                      <li>Set <em>Default Access Type</em> to <em>Read Only</em>
+                      <li>Read and agree to the <a href="http://dev.fitbit.com/terms">terms of service</a></li>
+                      <li>Click <em>Register</em></li>
+                      <li>Copy the text under <em>OAuth 2.0 Client ID</em><br/>(e.g. <tt>ABC123</tt>)</li>
+                      <li>Back in this tab, paste that text into<br/>the box marked <em>Client ID</em></li>
+                    </ol>
+
+                  </v-card-text>
+                  <v-card-actions>
+                    <v-btn
+                      style="width:100%"
+                      color="primary"
+                      @click="show_howto = false"
+                      >
+                      <v-icon
+                        left
+                        >
+                        mdi-close
+                      </v-icon>
+                      Close
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-dialog>
+            </v-card>
+
+            <div class="mt-3" id="icon-bar" style="text-align-last:justify;padding:0 10%">
+              <v-btn
+                icon
+                @click="show_terms = true"
+                color="grey"
+                >
+                <v-icon
+                  title="Terms of service"
+                  >
+                  mdi-file-sign
+                </v-icon>
+              </v-btn>
+              <v-btn
+                icon
+                @click="show_privacy = true"
+                color="grey"
+                >
+                <v-icon
+                  title="Privacy policy"
+                  >
+                  mdi-incognito
+                </v-icon>
+              </v-btn>
+              <v-btn
+                icon
+                href="https://github.com/fitsaver/fitsaver.github.io"
+                color="grey"
+                >
+                <v-icon
+                  title="Source code"
+                  >
+                  mdi-code-tags
+                </v-icon>
+              </v-btn>
+            </div>
+
+            <v-dialog
+              v-model="show_terms"
+              max-width="400"
+              >
+              <v-card>
+                <v-card-title>Terms of service</v-card-title>
+                <v-card-text>
+                  Fitsaver, Copyright (C) 2022 Andrew Sayers
+                  <p>Fitsaver comes with ABSOLUTELY NO WARRANTY.  This is free software, and you are welcome to redistribute it under certain conditions.</p>
+                  <p>For details, see <a href="LICENSE.html">the license</a>.</p>
+                </v-card-text>
+                <v-card-actions>
+                  <v-btn
+                    style="width:100%"
+                    color="primary"
+                    @click="show_terms = false"
+                    >
+                    <v-icon
+                      left
+                      >
+                      mdi-close
+                    </v-icon>
+                    Close
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+            <v-dialog
+              v-model="show_privacy"
+              max-width="400"
+              >
+              <v-card>
+                <v-card-title>Privacy policy</v-card-title>
+                <v-card-text>
+                  <p>This site does not store any information about you, but does use third-party resources (e.g. icons) that have their own privacy policies.</p>
+                  <p>This volunteer-run project does not track personal information.  For example, we do not use site analytics.</p>
+                  <p>For technical reasons, we do use <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage">session storage</a> to store a small amount of information in your browser during the Fitbit login process.  This information is not sent anywhere, and is quickly deleted by your browser.</p>
+                  <p>If you would like to know more about the software, please see <a href="https://github.com/fitsaver/fitsaver.github.io">our source code</a>.</p>
+                </v-card-text>
+                <v-card-actions>
+                  <v-btn
+                    style="width:100%"
+                    color="primary"
+                    @click="show_privacy = false"
+                    >
+                    <v-icon
+                      left
+                      >
+                      mdi-close
+                    </v-icon>
+                    Close
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+            <v-dialog
+              v-model="download_failed"
+              max-width="400"
+              >
+              <v-card>
+                <v-card-title>
+                  Download failed
+                </v-card-title>
+
+                <v-card-text v-if="download_error=='rate-limit'">
+                  Hourly download limit exceeded.  Try again in an hour.
+                </v-card-text>
+                <v-card-text v-if="download_error=='pending'">
+                  Your data is currently being processed.  Try again in a few minutes.
+                </v-card-text>
+                <v-card-text v-else>
+                  We could not download your data.<br/>
+                  You might need to make a new client ID.
+                </v-card-text>
+
+                <v-card-actions>
+                  <v-btn
+                    color="primary"
+                    text
+                    @click="download_failed = false"
+                    style="width:100%"
+                    >
+                    OK
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+          </div>
+
+            <v-dialog
+              v-model="show_storage"
+              max-width="400"
+              >
+              <v-card>
+                <v-card-title>
+                  Please enable session storage
+                </v-card-title>
+
+                <v-card-text>
+                  <p>
+                    This site needs to store information in your browser between page loads.  This information is not sent anywhere, and is quickly deleted by your browser.
+                  </p>
+                  <p>
+                    This may have been incorrectly blocked by your cookie-management solution, despite using a more private technology called <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage">session storage</a>.
+                  </p>
+                  Please unblock this site, then refresh the page.
+                </v-card-text>
+
+                <v-card-actions>
+                  <v-btn
+                    color="primary"
+                    text
+                    @click="show_storage = false"
+                    style="width:100%"
+                    >
+                    OK
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+          </div>
+
+        </v-main>
+      </v-app>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.js"></script>
+    <script src="download.js"></script>
+    <script>
+      var base_date = Date.now() - (new Date()).getTimezoneOffset() * 60000 - 1000*60*60*24;
+      new Vue({
+          el: '#app',
+          vuetify: new Vuetify(),
+          data: () => ({
+
+              show_client_id: false,
+              client_id: '',
+
+              subformat: 'untimed',
+              intraday: new Date(base_date).toISOString().substr(0, 10),
+              intraday_text: '',
+              show_intraday_picker: false,
+              date_range: [
+                  new Date(base_date - 1000*60*60*24*7).toISOString().substr(0, 10),
+                  new Date(base_date                  ).toISOString().substr(0, 10),
+              ],
+              date_range_text: '',
+              show_date_range_picker: false,
+
+              location: window.location.href.split(/[?#]/)[0],
+              conf: window.location.search == '?conf',
+
+              show_howto: false,
+              downloading: false,
+              download_failed: false,
+              download_error: '',
+
+              show_terms: false,
+              show_privacy: false,
+
+              show_storage: false,
+          }),
+          mounted() {
+              try {
+                  sessionStorage;
+              } catch (e) {
+                  this.show_storage = true;
+                  return;
+              }
+              var a = this.$refs.downloader,
+                  params = {};
+              this.intraday_text = this.intraday;
+              this.date_range_text = this.date_range.sort().join(' to ');
+              window.location.hash.substr(1).replace(
+                  /([^&=]*)=([^&]*)/g, (_,key,value) => params[key] = value
+              );
+              if ( params.access_token ) {
+                  var values = sessionStorage.getItem('fitsaver').split(',');
+                  if ( values[0] == 'conf' ) {
+                      a.href = URL.createObjectURL(
+                          new Blob(
+                              [JSON.stringify({
+                                  format: "https://fitsaver.github.io/?conf",
+                                  created: new Date().getTime(),
+                                  params: params,
+                              }, undefined, '  ')],
+                              {type : 'application/json'}
+                          )
+                      );
+                      a.download = 'config.json';
+                      a.click();
+                  } else {
+                      this.downloading = true;
+                      var promise;
+                      switch ( values[0] ) {
+                      case 'untimed':
+                          promise = fitsaver_download_untimed(params);
+                          break;
+                      case 'intraday':
+                          promise = fitsaver_download_intraday(params,values[1]);
+                          break;
+                      case 'date_range':
+                          promise = fitsaver_download_date_range(params,values.slice(1));
+                          break;
+                      }
+                      promise
+                          .then( contents => {
+                              this.downloading = false;
+                              if ( contents.status && contents.status == "rejected" ) {
+                                  console.log(contents);
+                                  this.download_failed = true;
+                                  this.download_error  = contents.reason.error;
+                              } else {
+                                  a.href = URL.createObjectURL(
+                                      new Blob(
+                                          [contents],
+                                          {type : 'application/json'}
+                                      )
+                                  );
+                                  if ( values[0] == 'untimed' ) {
+                                      a.download = 'fitbit_backup.json';
+                                  } else {
+                                      a.download = 'fitbit_backup_'+values.slice(1).join('_to_')+'.json';
+                                  }
+                                  a.click();
+                              }
+                          });
+                      ;
+                  }
+              }
+          },
+          methods: {
+              save_values() {
+                  let values;
+                  if ( this.conf ) {
+                      values = 'conf';
+                  } else {
+                      values = this.subformat;
+                      switch ( this.subformat ) {
+                      case 'intraday':
+                          values += ',' + this.intraday_text;
+                          break;
+                      case 'date_range':
+                          values += ',' + this.date_range.sort().join();
+                          break;
+                      }
+                  }
+                  sessionStorage.setItem( 'fitsaver', values );
+              },
+          },
+          computed: {
+              download_uri() {
+                  return fitsaver_auth_uri( this.location, this.client_id, this.conf );
+              },
+              download_disabled() {
+                  return !this.client_id && !this.downloading;
+              },
+          },
+      });
+    </script>
+
+  </body>
+</html>
