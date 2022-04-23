@@ -64,7 +64,7 @@ case 4: // intraday
     break;
 case 5: // date_range
     filename = 'fitsaver_'+process.argv.slice(3).join('_to_')+'.json';
-    promise = dl.fitsaver_download_date_range(config.params,process.argv[3],process.argv[4]);
+    promise = dl.fitsaver_download_date_range(config.params,[process.argv[3],process.argv[4]]);
     break;
 }
 
