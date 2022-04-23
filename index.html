@@ -39,10 +39,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
               margin: auto;
           }
       }
+      #app-container {
+          display:none;
+      }
+      #app-container.mounted {
+          display: initial;
+      }
     </style>
   </head>
   <body>
-    <div id="app">
+    <div id="app-container">
       <v-app>
         <v-main>
 
@@ -415,7 +421,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
     <script>
       var base_date = Date.now() - (new Date()).getTimezoneOffset() * 60000 - 1000*60*60*24;
       new Vue({
-          el: '#app',
+          el: '#app-container',
           vuetify: new Vuetify(),
           data: () => ({
 
@@ -447,6 +453,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
               show_storage: false,
           }),
           mounted() {
+              document.getElementById("app-container").className += " mounted";
               try {
                   sessionStorage;
               } catch (e) {
