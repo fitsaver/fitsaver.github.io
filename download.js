@@ -265,6 +265,9 @@ self.fitsaver_download_untimed = function(params) {
                 '',             // https://dev.fitbit.com/build/reference/web-api/friends/get-friends/
                 'leaderboard/', // https://dev.fitbit.com/build/reference/web-api/friends/get-friends-leaderboard/
             ].map( id => _fitsaver_download_single(params,data,id+_fitsaver_url_keys[scope],1.1) ));
+            requests = requests.concat([
+                '/invitations', // only mentioned in the Swagger UI: https://dev.fitbit.com/build/reference/web-api/explore/#/Friends/getFriendsInvitations
+            ].map( id => _fitsaver_download_single(params,data,_fitsaver_url_keys[scope]+id,1.1) ));
             break;
         case 'sleep':
             requests = requests.concat([
